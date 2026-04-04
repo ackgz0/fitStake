@@ -12,6 +12,8 @@ import type { NormalizedLandmarkList } from "@mediapipe/pose";
 
 export type SquatTrackerProps = {
   exerciseType: "squat" | "pushup";
+  /** Defaults to 5 (quick demo). Use 10 for the 30-day daily goal. */
+  targetReps?: number;
   onChallengeComplete: () => void;
 };
 
@@ -66,6 +68,7 @@ function drawSkeleton(
 
 export const SquatTracker: FC<SquatTrackerProps> = ({
   exerciseType,
+  targetReps = 5,
   onChallengeComplete,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -76,6 +79,8 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
   const isTrackingActiveRef = useRef(false);
   const exerciseTypeRef = useRef(exerciseType);
   exerciseTypeRef.current = exerciseType;
+  const targetRepsRef = useRef(targetReps);
+  targetRepsRef.current = targetReps;
 
   const [prepCountdown, setPrepCountdown] = useState(10);
   const [isTrackingActive, setIsTrackingActive] = useState(false);
@@ -134,10 +139,11 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
         if (isDown) isDownRef.current = true;
         if (completedUp) {
           isDownRef.current = false;
+          const cap = targetRepsRef.current;
           setRepCount((c) => {
-            if (c >= 5) return c;
+            if (c >= cap) return c;
             const next = c + 1;
-            if (next === 5 && !completionNotifiedRef.current) {
+            if (next === cap && !completionNotifiedRef.current) {
               completionNotifiedRef.current = true;
               onCompleteRef.current();
             }
@@ -164,10 +170,11 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
         if (isDown) isDownRef.current = true;
         if (completedUp) {
           isDownRef.current = false;
+          const cap = targetRepsRef.current;
           setRepCount((c) => {
-            if (c >= 5) return c;
+            if (c >= cap) return c;
             const next = c + 1;
-            if (next === 5 && !completionNotifiedRef.current) {
+            if (next === cap && !completionNotifiedRef.current) {
               completionNotifiedRef.current = true;
               onCompleteRef.current();
             }
@@ -289,7 +296,7 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
         }`}
         aria-live="polite"
       >
-        Tekrar: {repCount} / 5
+        Tekrar: {repCount} / {targetReps}
       </div>
       {repFlash && (
         <p className="text-center text-emerald-400 font-bold text-lg animate-pulse">
