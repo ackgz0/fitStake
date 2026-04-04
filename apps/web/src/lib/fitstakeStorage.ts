@@ -20,6 +20,7 @@ export type CompletedChallengeRecord = {
 export type FitstakeUserPersistedState = {
   activeChallenge: ActiveChallengePersisted | null;
   completedChallenges: CompletedChallengeRecord[];
+  trophyPoints: number;
 };
 
 export function getFitstakeUserKey(walletAddress: string): string {
@@ -27,7 +28,7 @@ export function getFitstakeUserKey(walletAddress: string): string {
 }
 
 export function defaultUserState(): FitstakeUserPersistedState {
-  return { activeChallenge: null, completedChallenges: [] };
+  return { activeChallenge: null, completedChallenges: [], trophyPoints: 0 };
 }
 
 export function loadUserState(
@@ -45,6 +46,9 @@ export function loadUserState(
         ...parsed.activeChallenge,
         canClaim: false,
       };
+    }
+    if (typeof parsed.trophyPoints !== "number") {
+      parsed.trophyPoints = 0;
     }
     return parsed;
   } catch {

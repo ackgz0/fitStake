@@ -7,11 +7,13 @@ import type { CompletedChallengeRecord } from "@/lib/fitstakeStorage";
 type ProfileDropdownProps = {
   completedChallenges: CompletedChallengeRecord[];
   totalCompleted: number;
+  trophyPoints: number;
 };
 
 export function ProfileDropdown({
   completedChallenges,
   totalCompleted,
+  trophyPoints,
 }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -64,10 +66,15 @@ export function ProfileDropdown({
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Geçmiş başarılar
           </p>
-          <p className="mt-1 text-sm text-slate-300">
-            Toplam tamamlanan:{" "}
-            <span className="font-bold text-cyan-300">{totalCompleted}</span>
-          </p>
+          <div className="mt-2 flex items-center gap-4 text-sm text-slate-300">
+            <span>
+              🏆 <span className="font-bold text-amber-300">{trophyPoints}</span>
+            </span>
+            <span>
+              Tamamlanan:{" "}
+              <span className="font-bold text-cyan-300">{totalCompleted}</span>
+            </span>
+          </div>
           <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto text-sm">
             {completedChallenges.length === 0 ? (
               <li className="rounded-lg bg-slate-800/50 px-3 py-2 text-slate-500">

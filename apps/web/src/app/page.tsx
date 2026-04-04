@@ -147,6 +147,25 @@ export default function Home() {
     return new Program(IDL, provider);
   }, [anchorWallet, connection]);
 
+  const handleBackToHome = useCallback(() => {
+    const msg = isChallengeActive
+      ? "Aktif antrenmanı bırakmak istediğinden emin misin? İlerleme kaybolacak ve stake edilen SOL geri alınamaz."
+      : "Aktif challenge'dan çıkmak istediğinden emin misin? Stake edilen SOL geri alınamaz.";
+    const ok = window.confirm(msg);
+    if (!ok) return;
+
+    if (persisted) {
+      persistReplace({
+        ...persisted,
+        activeChallenge: null,
+      });
+    }
+    setIsChallengeActive(false);
+    setActiveChallengeId(null);
+    setRewardUnlocked(false);
+    setFlowSelection("pick");
+  }, [isChallengeActive, persisted, persistReplace]);
+
   const ac = persisted?.activeChallenge;
   const is30DayActive = ac?.type === "30day_transformation";
   const isQuickActive = ac?.type === "quick_demo";
@@ -160,25 +179,30 @@ export default function Home() {
     const cur = persisted.activeChallenge;
 
     if (cur.type === "quick_demo") {
+      const trophyEarned = exerciseType === "pushup" ? 10 : 5;
       const next: FitstakeUserPersistedState = {
         ...persisted,
         activeChallenge: { ...cur, canClaim: true },
         completedChallenges: [
           ...persisted.completedChallenges,
           {
-            name: "Hızlı Demo (Anında Ödül)",
+            name: `Hızlı Demo — ${exerciseType === "pushup" ? "Şınav" : "Squat"} (+${trophyEarned} 🏆)`,
             completedAt: new Date().toISOString(),
           },
         ],
+        trophyPoints: persisted.trophyPoints + trophyEarned,
       };
       persistReplace(next);
       setRewardUnlocked(true);
       setIsChallengeActive(false);
-      window.alert("Tebrikler! Görevi tamamladın. Ödülünü çekebilirsin.");
+      window.alert(
+        `Tebrikler! Görevi tamamladın. +${trophyEarned} kupa kazandın! Ödülünü çekebilirsin.`,
+      );
       return;
     }
 
     if (cur.type === "30day_transformation") {
+      const trophyEarned = 15;
       const nextDay = cur.currentDay + 1;
       const last = todayLocalYMD();
       const canClaim = nextDay >= 30;
@@ -200,17 +224,18 @@ export default function Home() {
                 },
               ]
             : persisted.completedChallenges,
+        trophyPoints: persisted.trophyPoints + trophyEarned,
       };
       persistReplace(next);
       setRewardUnlocked(canClaim);
       setIsChallengeActive(false);
       window.alert(
         nextDay >= 30
-          ? "30 günlük program tamamlandı! Ödülünü çekebilirsin."
-          : `Gün ${nextDay}/30 tamamlandı. Yarın tekrar görüşürüz!`,
+          ? `30 günlük program tamamlandı! +${trophyEarned} kupa! Ödülünü çekebilirsin.`
+          : `Gün ${nextDay}/30 tamamlandı. +${trophyEarned} kupa! Yarın tekrar görüşürüz!`,
       );
     }
-  }, [persistReplace, persisted, publicKey]);
+  }, [exerciseType, persistReplace, persisted, publicKey]);
 
   const handleStake = useCallback(async () => {
     if (!anchorWallet || !publicKey) {
@@ -302,11 +327,11 @@ export default function Home() {
         .rpc();
       window.alert("Tebrikler! Ödül cüzdanına yattı!");
       if (publicKey) {
-        const cleared: FitstakeUserPersistedState = {
+        persistReplace({
           activeChallenge: null,
           completedChallenges: persisted?.completedChallenges ?? [],
-        };
-        persistReplace(cleared);
+          trophyPoints: persisted?.trophyPoints ?? 0,
+        });
       }
       setRewardUnlocked(false);
       setActiveChallengeId(null);
@@ -324,6 +349,7 @@ export default function Home() {
     getProgram,
     persistReplace,
     persisted?.completedChallenges,
+    persisted?.trophyPoints,
     publicKey,
     rewardUnlocked,
   ]);
@@ -378,6 +404,7 @@ export default function Home() {
               <ProfileDropdown
                 completedChallenges={persisted.completedChallenges}
                 totalCompleted={persisted.completedChallenges.length}
+                trophyPoints={persisted.trophyPoints}
               />
             )}
             <WalletMultiButton className="!bg-slate-900 !font-medium !shadow-[0_0_24px_-6px_rgba(34,211,238,0.45)] hover:!bg-slate-800" />
@@ -388,7 +415,7 @@ export default function Home() {
       <div
         className={`flex min-h-screen flex-col ${mounted && connected ? "pt-20" : ""}`}
       >
-        {!connected && (
+        {(!mounted || !connected) && (
           <section className="flex flex-1 flex-col items-center justify-center px-6 py-16">
             <div className="max-w-lg text-center">
               <h1 className="bg-gradient-to-br from-white via-slate-100 to-slate-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl">
@@ -398,15 +425,19 @@ export default function Home() {
                 Stake et, hareket et, kazan. Web3 ile fitness challenge.
               </p>
               <div className="mt-12 flex justify-center">
-                <WalletMultiButton className="!scale-110 !rounded-2xl !bg-gradient-to-r !from-cyan-600 !to-emerald-600 !px-8 !py-3 !font-semibold !shadow-[0_0_40px_-8px_rgba(34,211,238,0.55)] hover:!from-cyan-500 hover:!to-emerald-500" />
+                {mounted ? (
+                  <WalletMultiButton className="!scale-110 !rounded-2xl !bg-gradient-to-r !from-cyan-600 !to-emerald-600 !px-8 !py-3 !font-semibold !shadow-[0_0_40px_-8px_rgba(34,211,238,0.55)] hover:!from-cyan-500 hover:!to-emerald-500" />
+                ) : (
+                  <span className="inline-block h-[50px] w-[200px] animate-pulse rounded-2xl bg-slate-800/60" />
+                )}
               </div>
             </div>
           </section>
         )}
 
-        {connected && publicKey && (
+        {mounted && connected && publicKey && (
           <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 pb-20 pt-6 sm:px-6">
-            {!mounted || !hydrated || !persisted ? (
+            {!hydrated || !persisted ? (
               <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-500 backdrop-blur-sm">
                 Profil verileri yükleniyor…
               </div>
@@ -420,6 +451,14 @@ export default function Home() {
                     Veriler bu cihazda saklanır (localStorage).
                   </p>
                   <div className="mt-4 flex flex-wrap gap-4">
+                    <div className="rounded-2xl border border-amber-500/20 bg-slate-950/50 px-4 py-3">
+                      <p className="text-xs uppercase tracking-wider text-slate-500">
+                        Kupa puanı
+                      </p>
+                      <p className="text-2xl font-bold text-amber-300">
+                        {persisted.trophyPoints} 🏆
+                      </p>
+                    </div>
                     <div className="rounded-2xl border border-cyan-500/20 bg-slate-950/50 px-4 py-3">
                       <p className="text-xs uppercase tracking-wider text-slate-500">
                         Toplam tamamlanan challenge
@@ -483,6 +522,9 @@ export default function Home() {
                         <p className="mt-2 text-sm leading-relaxed text-slate-400">
                           0.1 SOL stake, 5 tekrar, ardından hemen claim. MVP akışı.
                         </p>
+                        <p className="mt-2 text-xs font-medium text-amber-400/80">
+                          🏆 Squat: +5 kupa · Şınav: +10 kupa
+                        </p>
                       </button>
                       <button
                         type="button"
@@ -506,6 +548,9 @@ export default function Home() {
                           <strong className="text-slate-300">0.1 SOL</strong>{" "}
                           (kartta 0.5 SOL hedefli ürün vizyonu).
                         </p>
+                        <p className="mt-2 text-xs font-medium text-amber-400/80">
+                          🏆 Her gün: +15 kupa (toplam 450)
+                        </p>
                       </button>
                     </div>
                   </section>
@@ -522,8 +567,9 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setFlowSelection("pick")}
-                        className="text-sm text-slate-500 underline-offset-4 hover:text-slate-300 hover:underline"
+                        className="flex items-center gap-1.5 text-sm text-slate-500 underline-offset-4 hover:text-slate-300 hover:underline"
                       >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         Challenge listesine dön
                       </button>
                     </div>
@@ -564,6 +610,17 @@ export default function Home() {
                       {stakeLabel}
                     </button>
                   </section>
+                )}
+
+                {showActiveFlow && (
+                  <button
+                    type="button"
+                    onClick={handleBackToHome}
+                    className="flex items-center gap-1.5 self-start rounded-xl border border-slate-700/60 bg-slate-900/50 px-4 py-2 text-sm font-medium text-slate-400 transition hover:border-slate-600 hover:bg-slate-800/70 hover:text-slate-200"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    Ana Sayfaya Dön
+                  </button>
                 )}
 
                 {showActiveFlow && is30DayActive && completedToday30 && (
