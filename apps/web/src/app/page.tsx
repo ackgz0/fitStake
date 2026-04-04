@@ -22,9 +22,12 @@ import {
 } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
+import { useLanguage } from "@/components/LanguageProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
-import fitstakeVaultIdl from "@/idl/fitstake_vault.json";
 import type { SquatTrackerProps } from "@/components/SquatTracker";
+import fitstakeVaultIdl from "@/idl/fitstake_vault.json";
+import { localeToBcp47 } from "@/lib/i18n";
 import {
   defaultUserState,
   loadUserState,
@@ -40,12 +43,19 @@ const Confetti = dynamic(
   ComponentProps<typeof import("react-confetti").default>
 >;
 
+function SquatTrackerLoading() {
+  const { t } = useLanguage();
+  return (
+    <p className="text-slate-400 text-sm">{t("squatTrackerLoading")}</p>
+  );
+}
+
 const SquatTracker = dynamic(
   () =>
     import("@/components/SquatTracker").then((m) => ({
       default: m.SquatTracker,
     })),
-  { ssr: false, loading: () => <p className="text-slate-400 text-sm">Yükleniyor…</p> },
+  { ssr: false, loading: SquatTrackerLoading },
 ) as ComponentType<SquatTrackerProps>;
 
 const PROGRAM_ID = new web3.PublicKey(
@@ -73,6 +83,8 @@ function deriveChallengePdas(walletPk: web3.PublicKey, challengeId: BN) {
 type FlowSelection = "pick" | "quick" | "30day";
 
 export default function Home() {
+  const { t, locale } = useLanguage();
+  const dateLocale = localeToBcp47(locale);
   const { connection } = useConnection();
   const { connected, publicKey } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -138,19 +150,19 @@ export default function Home() {
 
   const getProgram = useCallback(() => {
     if (!anchorWallet) {
-      throw new Error("Cüzdan bağlı değil veya imza yok.");
+      throw new Error(t("errWalletProgram"));
     }
     const provider = new AnchorProvider(connection, anchorWallet, {
       commitment: "confirmed",
       preflightCommitment: "confirmed",
     });
     return new Program(IDL, provider);
-  }, [anchorWallet, connection]);
+  }, [anchorWallet, connection, t]);
 
   const handleBackToHome = useCallback(() => {
     const msg = isChallengeActive
-      ? "Aktif antrenmanı bırakmak istediğinden emin misin? İlerleme kaybolacak ve stake edilen SOL geri alınamaz."
-      : "Aktif challenge'dan çıkmak istediğinden emin misin? Stake edilen SOL geri alınamaz.";
+      ? t("confirmBackActiveWorkout")
+      : t("confirmBackChallenge");
     const ok = window.confirm(msg);
     if (!ok) return;
 
@@ -164,7 +176,7 @@ export default function Home() {
     setActiveChallengeId(null);
     setRewardUnlocked(false);
     setFlowSelection("pick");
-  }, [isChallengeActive, persisted, persistReplace]);
+  }, [isChallengeActive, persisted, persistReplace, t]);
 
   const ac = persisted?.activeChallenge;
   const is30DayActive = ac?.type === "30day_transformation";
@@ -180,13 +192,20 @@ export default function Home() {
 
     if (cur.type === "quick_demo") {
       const trophyEarned = exerciseType === "pushup" ? 10 : 5;
+      const exName =
+        exerciseType === "pushup"
+          ? t("exercisePushup")
+          : t("squatLabelSquat");
       const next: FitstakeUserPersistedState = {
         ...persisted,
         activeChallenge: { ...cur, canClaim: true },
         completedChallenges: [
           ...persisted.completedChallenges,
           {
-            name: `Hızlı Demo — ${exerciseType === "pushup" ? "Şınav" : "Squat"} (+${trophyEarned} 🏆)`,
+            name: t("quickChallengeName", {
+              exercise: exName,
+              trophy: trophyEarned,
+            }),
             completedAt: new Date().toISOString(),
           },
         ],
@@ -195,9 +214,7 @@ export default function Home() {
       persistReplace(next);
       setRewardUnlocked(true);
       setIsChallengeActive(false);
-      window.alert(
-        `Tebrikler! Görevi tamamladın. +${trophyEarned} kupa kazandın! Ödülünü çekebilirsin.`,
-      );
+      window.alert(t("alertQuickComplete", { trophy: trophyEarned }));
       return;
     }
 
@@ -219,7 +236,7 @@ export default function Home() {
             ? [
                 ...persisted.completedChallenges,
                 {
-                  name: "30 Günlük Dönüşüm",
+                  name: t("challengeName30Day"),
                   completedAt: new Date().toISOString(),
                 },
               ]
@@ -231,19 +248,19 @@ export default function Home() {
       setIsChallengeActive(false);
       window.alert(
         nextDay >= 30
-          ? `30 günlük program tamamlandı! +${trophyEarned} kupa! Ödülünü çekebilirsin.`
-          : `Gün ${nextDay}/30 tamamlandı. +${trophyEarned} kupa! Yarın tekrar görüşürüz!`,
+          ? t("alert30Complete", { trophy: trophyEarned })
+          : t("alert30DayProgress", { day: nextDay, trophy: trophyEarned }),
       );
     }
-  }, [exerciseType, persistReplace, persisted, publicKey]);
+  }, [exerciseType, persistReplace, persisted, publicKey, t]);
 
   const handleStake = useCallback(async () => {
     if (!anchorWallet || !publicKey) {
-      window.alert("Cüzdan bağlı değil.");
+      window.alert(t("errWallet"));
       return;
     }
     if (flowSelection !== "quick" && flowSelection !== "30day") {
-      window.alert("Önce bir challenge seçin.");
+      window.alert(t("errPickChallenge"));
       return;
     }
     setTxKind("stake");
@@ -294,19 +311,19 @@ export default function Home() {
     } finally {
       setTxKind(null);
     }
-  }, [anchorWallet, flowSelection, getProgram, persistReplace, persisted, publicKey]);
+  }, [anchorWallet, flowSelection, getProgram, persistReplace, persisted, publicKey, t]);
 
   const handleClaim = useCallback(async () => {
     if (!anchorWallet) {
-      window.alert("Cüzdan bağlı değil.");
+      window.alert(t("errWallet"));
       return;
     }
     if (!activeChallengeId) {
-      window.alert("Aktif challenge kimliği yok. Önce stake yapın.");
+      window.alert(t("errNoChallengeId"));
       return;
     }
     if (!rewardUnlocked) {
-      window.alert("Henüz ödül için uygun değilsin.");
+      window.alert(t("errNotEligible"));
       return;
     }
     setTxKind("claim");
@@ -325,7 +342,7 @@ export default function Home() {
           systemProgram: web3.SystemProgram.programId,
         })
         .rpc();
-      window.alert("Tebrikler! Ödül cüzdanına yattı!");
+      window.alert(t("alertClaimSuccess"));
       if (publicKey) {
         persistReplace({
           activeChallenge: null,
@@ -352,13 +369,14 @@ export default function Home() {
     persisted?.trophyPoints,
     publicKey,
     rewardUnlocked,
+    t,
   ]);
 
   const isTxPending = txKind !== null;
   const stakeLabel =
-    txKind === "stake" ? "Ağa İşleniyor…" : "Challenge'a Katıl (0.1 SOL Stake)";
+    txKind === "stake" ? t("stakeProcessing") : t("stakeCta");
   const claimLabel =
-    txKind === "claim" ? "Ağa İşleniyor…" : "Ödülünü Çek";
+    txKind === "claim" ? t("claimProcessing") : t("claimCta");
 
   const claimDisabled =
     !rewardUnlocked ||
@@ -368,9 +386,9 @@ export default function Home() {
 
   const claimTitle =
     is30DayActive && !ac?.canClaim
-      ? "30 günlük programı bitirip günlük hedefleri tamamladıktan sonra ödül çekilebilir."
+      ? t("claimTitle30NotDone")
       : !rewardUnlocked
-        ? "Önce görevi tamamlayın."
+        ? t("claimTitleNeedComplete")
         : undefined;
 
   const showChallengePicker =
@@ -400,6 +418,7 @@ export default function Home() {
             FitStake
           </span>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             {publicKey && hydrated && persisted && (
               <ProfileDropdown
                 completedChallenges={persisted.completedChallenges}
@@ -416,13 +435,18 @@ export default function Home() {
         className={`flex min-h-screen flex-col ${mounted && connected ? "pt-20" : ""}`}
       >
         {(!mounted || !connected) && (
+          <div className="fixed right-4 top-4 z-50 sm:right-8">
+            <LanguageSwitcher />
+          </div>
+        )}
+        {(!mounted || !connected) && (
           <section className="flex flex-1 flex-col items-center justify-center px-6 py-16">
             <div className="max-w-lg text-center">
               <h1 className="bg-gradient-to-br from-white via-slate-100 to-slate-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl">
                 FitStake
               </h1>
               <p className="mt-4 text-lg text-slate-400">
-                Stake et, hareket et, kazan. Web3 ile fitness challenge.
+                {t("heroTagline")}
               </p>
               <div className="mt-12 flex justify-center">
                 {mounted ? (
@@ -439,21 +463,21 @@ export default function Home() {
           <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 pb-20 pt-6 sm:px-6">
             {!hydrated || !persisted ? (
               <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-500 backdrop-blur-sm">
-                Profil verileri yükleniyor…
+                {t("profileLoading")}
               </div>
             ) : (
               <>
                 <section className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
                   <h2 className="text-lg font-semibold text-slate-100">
-                    Profilim
+                    {t("profileTitle")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Veriler bu cihazda saklanır (localStorage).
+                    {t("profileStorageNote")}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-4">
                     <div className="rounded-2xl border border-amber-500/20 bg-slate-950/50 px-4 py-3">
                       <p className="text-xs uppercase tracking-wider text-slate-500">
-                        Kupa puanı
+                        {t("trophyPoints")}
                       </p>
                       <p className="text-2xl font-bold text-amber-300">
                         {persisted.trophyPoints} 🏆
@@ -461,7 +485,7 @@ export default function Home() {
                     </div>
                     <div className="rounded-2xl border border-cyan-500/20 bg-slate-950/50 px-4 py-3">
                       <p className="text-xs uppercase tracking-wider text-slate-500">
-                        Toplam tamamlanan challenge
+                        {t("totalChallenges")}
                       </p>
                       <p className="text-2xl font-bold text-cyan-300">
                         {persisted.completedChallenges.length}
@@ -470,12 +494,12 @@ export default function Home() {
                     {ac && (
                       <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/50 px-4 py-3">
                         <p className="text-xs uppercase tracking-wider text-slate-500">
-                          Aktif program
+                          {t("activeProgram")}
                         </p>
                         <p className="text-sm font-medium text-emerald-300/90">
                           {is30DayActive
-                            ? `30 Günlük Dönüşüm — Gün ${ac.currentDay}/30`
-                            : "Hızlı Demo"}
+                            ? t("active30Day", { day: ac.currentDay })
+                            : t("quickDemo")}
                         </p>
                       </div>
                     )}
@@ -489,7 +513,9 @@ export default function Home() {
                         >
                           <span className="text-slate-200">{c.name}</span>
                           <span className="shrink-0 text-slate-500">
-                            {new Date(c.completedAt).toLocaleDateString()}
+                            {new Date(c.completedAt).toLocaleDateString(
+                              dateLocale,
+                            )}
                           </span>
                         </li>
                       ))}
@@ -500,7 +526,7 @@ export default function Home() {
                 {showChallengePicker && (
                   <section>
                     <h2 className="mb-4 text-center text-xl font-bold text-slate-100 sm:text-2xl">
-                      Challenge seç
+                      {t("pickChallenge")}
                     </h2>
                     <div className="grid gap-6 md:grid-cols-2">
                       <button
@@ -514,16 +540,16 @@ export default function Home() {
                       >
                         <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl transition group-hover:bg-cyan-500/20" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400/90">
-                          Anında
+                          {t("cardQuickBadge")}
                         </span>
                         <h3 className="mt-2 text-xl font-bold text-white">
-                          Hızlı Demo (Anında Ödül)
+                          {t("cardQuickTitle")}
                         </h3>
                         <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                          0.1 SOL stake, 5 tekrar, ardından hemen claim. MVP akışı.
+                          {t("cardQuickBody")}
                         </p>
                         <p className="mt-2 text-xs font-medium text-amber-400/80">
-                          🏆 Squat: +5 kupa · Şınav: +10 kupa
+                          {t("cardQuickTrophy")}
                         </p>
                       </button>
                       <button
@@ -537,19 +563,16 @@ export default function Home() {
                       >
                         <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl transition group-hover:bg-emerald-500/20" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">
-                          Uzun vade
+                          {t("card30Badge")}
                         </span>
                         <h3 className="mt-2 text-xl font-bold text-white">
-                          30 Günlük Dönüşüm
+                          {t("card30Title")}
                         </h3>
                         <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                          Her gün 10 squat hedefi, 30 gün boyunca. Ödül, 30 gün
-                          tamamlanınca (UI kuralı). Stake: mevcut sözleşme{" "}
-                          <strong className="text-slate-300">0.1 SOL</strong>{" "}
-                          (kartta 0.5 SOL hedefli ürün vizyonu).
+                          {t("card30Body", { stake: "0.1 SOL" })}
                         </p>
                         <p className="mt-2 text-xs font-medium text-amber-400/80">
-                          🏆 Her gün: +15 kupa (toplam 450)
+                          {t("card30Trophy")}
                         </p>
                       </button>
                     </div>
@@ -561,8 +584,8 @@ export default function Home() {
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <h3 className="font-semibold text-slate-200">
                         {flowSelection === "quick"
-                          ? "Hızlı Demo — hazırlan"
-                          : "30 Günlük — hazırlan"}
+                          ? t("prepQuick")
+                          : t("prep30")}
                       </h3>
                       <button
                         type="button"
@@ -570,13 +593,13 @@ export default function Home() {
                         className="flex items-center gap-1.5 text-sm text-slate-500 underline-offset-4 hover:text-slate-300 hover:underline"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                        Challenge listesine dön
+                        {t("backToList")}
                       </button>
                     </div>
                     <div
                       className="flex flex-wrap gap-2"
                       role="group"
-                      aria-label="Egzersiz seçimi"
+                      aria-label={t("ariaExercise")}
                     >
                       <button
                         type="button"
@@ -598,7 +621,7 @@ export default function Home() {
                             : "border border-slate-600 bg-slate-800/50 text-slate-300 hover:bg-slate-700/80"
                         }`}
                       >
-                        Şınav
+                        {t("exercisePushup")}
                       </button>
                     </div>
                     <button
@@ -619,15 +642,15 @@ export default function Home() {
                     className="flex items-center gap-1.5 self-start rounded-xl border border-slate-700/60 bg-slate-900/50 px-4 py-2 text-sm font-medium text-slate-400 transition hover:border-slate-600 hover:bg-slate-800/70 hover:text-slate-200"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                    Ana Sayfaya Dön
+                    {t("backHome")}
                   </button>
                 )}
 
                 {showActiveFlow && is30DayActive && completedToday30 && (
                   <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 px-4 py-4 text-center text-emerald-200/95">
                     {ac.currentDay >= 30 && ac.canClaim
-                      ? "30 günlük programı tamamladın. Aşağıdan ödülünü çekebilirsin."
-                      : "Bugünün hedefini tamamladın. Yarın görüşürüz!"}
+                      ? t("msg30ClaimReady")
+                      : t("msg30DoneToday")}
                   </div>
                 )}
 
@@ -640,7 +663,7 @@ export default function Home() {
                       onClick={() => setIsChallengeActive(true)}
                       className="w-full rounded-2xl border border-emerald-500/40 bg-emerald-900/20 py-4 font-semibold text-emerald-200 transition hover:bg-emerald-900/35"
                     >
-                      Bugünkü hedefi başlat (10 tekrar)
+                      {t("startTodayGoal")}
                     </button>
                   )}
 
@@ -652,7 +675,7 @@ export default function Home() {
                       <div
                         className="flex flex-wrap gap-2"
                         role="group"
-                        aria-label="Egzersiz seçimi"
+                        aria-label={t("ariaExercise")}
                       >
                         <button
                           type="button"
@@ -674,7 +697,7 @@ export default function Home() {
                               : "border border-slate-600 bg-slate-800/50"
                           }`}
                         >
-                          Şınav
+                          {t("exercisePushup")}
                         </button>
                       </div>
                       <button
@@ -682,7 +705,7 @@ export default function Home() {
                         onClick={() => setIsChallengeActive(true)}
                         className="w-full rounded-2xl border border-cyan-500/40 bg-cyan-900/20 py-4 font-semibold text-cyan-200 transition hover:bg-cyan-900/35"
                       >
-                        Antrenmanı sürdür
+                        {t("resumeWorkout")}
                       </button>
                     </>
                   )}
@@ -712,7 +735,7 @@ export default function Home() {
                             : "border border-slate-600 bg-slate-800/50"
                         }`}
                       >
-                        Şınav
+                        {t("exercisePushup")}
                       </button>
                     </div>
                   )}
@@ -738,8 +761,7 @@ export default function Home() {
                     </button>
                     {is30DayActive && !ac.canClaim && (
                       <p className="self-center text-sm text-slate-500">
-                        Ödül: 30 gün tamamlandıktan sonra (şu an{" "}
-                        {ac.currentDay}/30).
+                        {t("rewardHint30", { day: ac.currentDay })}
                       </p>
                     )}
                   </div>

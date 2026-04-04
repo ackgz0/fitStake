@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useLanguage } from "@/components/LanguageProvider";
+import { localeToBcp47 } from "@/lib/i18n";
 import type { CompletedChallengeRecord } from "@/lib/fitstakeStorage";
 
 type ProfileDropdownProps = {
@@ -15,8 +17,10 @@ export function ProfileDropdown({
   totalCompleted,
   trophyPoints,
 }: ProfileDropdownProps) {
+  const { t, locale } = useLanguage();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const dateLocale = localeToBcp47(locale);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -40,7 +44,7 @@ export function ProfileDropdown({
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <span className="text-cyan-300">Profil</span>
+        <span className="text-cyan-300">{t("profileBtn")}</span>
         <svg
           className={`h-4 w-4 text-cyan-400/80 transition ${open ? "rotate-180" : ""}`}
           fill="none"
@@ -61,24 +65,24 @@ export function ProfileDropdown({
         <div
           className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-2xl border border-slate-700/80 bg-slate-900/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl"
           role="dialog"
-          aria-label="Tamamlanan challenge geçmişi"
+          aria-label={t("ariaProfileHistory")}
         >
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Geçmiş başarılar
+            {t("pastAchievements")}
           </p>
           <div className="mt-2 flex items-center gap-4 text-sm text-slate-300">
             <span>
               🏆 <span className="font-bold text-amber-300">{trophyPoints}</span>
             </span>
             <span>
-              Tamamlanan:{" "}
+              {t("completedLabel")}{" "}
               <span className="font-bold text-cyan-300">{totalCompleted}</span>
             </span>
           </div>
           <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto text-sm">
             {completedChallenges.length === 0 ? (
               <li className="rounded-lg bg-slate-800/50 px-3 py-2 text-slate-500">
-                Henüz kayıtlı challenge yok.
+                {t("noChallengesYet")}
               </li>
             ) : (
               [...completedChallenges]
@@ -92,7 +96,7 @@ export function ProfileDropdown({
                       {c.name}
                     </span>
                     <span className="mt-0.5 block text-xs text-slate-500">
-                      {new Date(c.completedAt).toLocaleString()}
+                      {new Date(c.completedAt).toLocaleString(dateLocale)}
                     </span>
                   </li>
                 ))

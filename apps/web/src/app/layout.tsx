@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import { WalletProvider } from "@/components/WalletProvider";
 import "./globals.css";
 
@@ -24,11 +25,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="tr">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-slate-950 text-white`}
       >
-        <WalletProvider>{children}</WalletProvider>
+        <LanguageProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

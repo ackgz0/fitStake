@@ -10,6 +10,8 @@ import {
 
 import type { NormalizedLandmarkList } from "@mediapipe/pose";
 
+import { useLanguage } from "@/components/LanguageProvider";
+
 export type SquatTrackerProps = {
   exerciseType: "squat" | "pushup";
   /** Defaults to 5 (quick demo). Use 10 for the 30-day daily goal. */
@@ -71,6 +73,7 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
   targetReps = 5,
   onChallengeComplete,
 }) => {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDownRef = useRef(false);
@@ -264,7 +267,7 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
       } catch (e) {
         if (!cancelled) {
           setError(
-            e instanceof Error ? e.message : "Kamera veya MediaPipe hatası",
+            e instanceof Error ? e.message : t("squatErrCamera"),
           );
         }
       }
@@ -277,18 +280,18 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
       void cameraStop?.();
       void poseClose?.();
     };
-  }, [processExerciseFrame]);
+  }, [processExerciseFrame, t]);
 
-  const exerciseLabel = exerciseType === "squat" ? "Squat" : "Şınav (Push-up)";
+  const exerciseLabel =
+    exerciseType === "squat" ? t("squatLabelSquat") : t("squatLabelPushup");
   const phaseHint =
-    exerciseType === "squat"
-      ? "Alt faz algılandı (diz açısı)"
-      : "Alt faz algılandı (dirsek açısı)";
+    exerciseType === "squat" ? t("squatPhaseSquat") : t("squatPhasePushup");
 
   return (
     <div className="flex flex-col gap-4 w-full">
       <p className="text-center text-slate-300 text-sm font-medium">
-        Egzersiz: <span className="text-amber-300">{exerciseLabel}</span>
+        {t("squatTrackerExercise")}{" "}
+        <span className="text-amber-300">{exerciseLabel}</span>
       </p>
       <div
         className={`text-center text-3xl font-extrabold tracking-wide drop-shadow-lg transition-colors duration-200 ${
@@ -296,11 +299,11 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
         }`}
         aria-live="polite"
       >
-        Tekrar: {repCount} / {targetReps}
+        {t("squatTrackerRep")} {repCount} / {targetReps}
       </div>
       {repFlash && (
         <p className="text-center text-emerald-400 font-bold text-lg animate-pulse">
-          +1 tekrar!
+          {t("squatTrackerPlusRep")}
         </p>
       )}
       {isTrackingActive && isInDownPhase && (
@@ -321,8 +324,7 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
             aria-live="polite"
           >
             <p className="text-white text-lg sm:text-xl font-bold leading-snug max-w-md">
-              Kamera Hazırlanıyor: Tüm vücudunuz kadraja girecek şekilde
-              uzaklaşın... {prepCountdown}
+              {t("squatCameraPrep", { seconds: prepCountdown })}
             </p>
           </div>
         )}
