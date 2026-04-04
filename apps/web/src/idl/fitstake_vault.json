@@ -1,0 +1,63 @@
+{
+  "address": "Y423PxcQ8DobRYRrWRCYG7XrRkfvhT7MyP8TWex1MxX",
+  "metadata": {
+    "name": "fitstake_vault",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "stake_sol",
+      "discriminator": [200, 38, 157, 155, 245, 57, 236, 168],
+      "accounts": [
+        { "name": "user_profile", "writable": true },
+        { "name": "vault", "writable": true },
+        { "name": "user", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "challenge_id", "type": "u64" }
+      ]
+    },
+    {
+      "name": "claim_reward",
+      "discriminator": [149, 95, 181, 242, 94, 90, 158, 162],
+      "accounts": [
+        { "name": "user_profile", "writable": true },
+        { "name": "vault", "writable": true },
+        { "name": "user", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "challenge_id", "type": "u64" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "UserProfile",
+      "discriminator": [32, 37, 119, 205, 179, 180, 13, 194]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NoStakeFound",
+      "msg": "No staked SOL found for this challenge."
+    }
+  ],
+  "types": [
+    {
+      "name": "UserProfile",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "user", "type": "pubkey" },
+          { "name": "challenge_id", "type": "u64" },
+          { "name": "amount_staked", "type": "u64" },
+          { "name": "is_completed", "type": "bool" }
+        ]
+      }
+    }
+  ]
+}

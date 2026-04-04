@@ -3,17 +3,17 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-fitstake_vault = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+fitstake_vault = "Y423PxcQ8DobRYRrWRCYG7XrRkfvhT7MyP8TWex1MxX"
 
 [programs.devnet]
-fitstake_vault = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+fitstake_vault = "Y423PxcQ8DobRYRrWRCYG7XrRkfvhT7MyP8TWex1MxX"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Devnet"
-wallet = "~/.config/solana/id.json"
+wallet = "~/.config/solana/phantom-devnet.json"
 
 [toolchain]
 anchor_version = "0.30.1"

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"); 
+declare_id!("Y423PxcQ8DobRYRrWRCYG7XrRkfvhT7MyP8TWex1MxX"); 
 
 #[program]
 pub mod fitstake_vault {
