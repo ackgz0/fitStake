@@ -15,4 +15,4 @@ We need a client-side (browser) component in Next.js that opens the device camer
 ## Instructions for Cursor
 - Generate a React component named `SquatTracker.tsx`.
 - Include clear UI overlays: "Squats: X / 5" and visual feedback when a squat is registered.
-- Ensure the camera asks for permissions properly and works gracefully on mobile browsers.
+- Ensure the camera asks for permissions properly and works gracefully on mobile browsers.s
