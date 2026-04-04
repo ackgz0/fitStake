@@ -10,14 +10,31 @@ import {
 
 import type { NormalizedLandmarkList } from "@mediapipe/pose";
 
-type SquatTrackerProps = {
+export type SquatTrackerProps = {
+  exerciseType: "squat" | "pushup";
   onChallengeComplete: () => void;
 };
 
-const HIP_L = 23;
-const HIP_R = 24;
-const KNEE_L = 25;
-const KNEE_R = 26;
+const SQUAT_HIP = 24;
+const SQUAT_KNEE = 26;
+const SQUAT_ANKLE = 28;
+const PUSH_SHOULDER = 12;
+const PUSH_ELBOW = 14;
+const PUSH_WRIST = 16;
+
+type Point2 = { x: number; y: number };
+
+const calculateAngle = (a: Point2, b: Point2, c: Point2) => {
+  const radians =
+    Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+  let angle = Math.abs((radians * 180.0) / Math.PI);
+  if (angle > 180.0) angle = 360 - angle;
+  return angle;
+};
+
+function landmarkVisible(lm: { visibility?: number } | undefined) {
+  return lm != null && (lm.visibility ?? 1) >= 0.3;
+}
 
 function drawSkeleton(
   ctx: CanvasRenderingContext2D,
@@ -48,49 +65,118 @@ function drawSkeleton(
 }
 
 export const SquatTracker: FC<SquatTrackerProps> = ({
+  exerciseType,
   onChallengeComplete,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const wasSquattingRef = useRef(false);
+  const isDownRef = useRef(false);
   const completionNotifiedRef = useRef(false);
 
-  const [squatCount, setSquatCount] = useState(0);
-  const [isSquatting, setIsSquatting] = useState(false);
+  const isTrackingActiveRef = useRef(false);
+  const exerciseTypeRef = useRef(exerciseType);
+  exerciseTypeRef.current = exerciseType;
+
+  const [prepCountdown, setPrepCountdown] = useState(10);
+  const [isTrackingActive, setIsTrackingActive] = useState(false);
+  const [repCount, setRepCount] = useState(0);
+  const [isInDownPhase, setIsInDownPhase] = useState(false);
+  const [repFlash, setRepFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onCompleteRef = useRef(onChallengeComplete);
   onCompleteRef.current = onChallengeComplete;
 
-  const handleSquatLogic = useCallback(
+  useEffect(() => {
+    isTrackingActiveRef.current = isTrackingActive;
+  }, [isTrackingActive]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setPrepCountdown((c) => {
+        if (c <= 1) {
+          window.clearInterval(id);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (prepCountdown === 0) {
+      setIsTrackingActive(true);
+    }
+  }, [prepCountdown]);
+
+  const processExerciseFrame = useCallback(
     (landmarks: NormalizedLandmarkList | undefined) => {
-      if (!landmarks || landmarks.length < 27) return;
+      if (!isTrackingActiveRef.current || !landmarks) return;
 
-      const lh = landmarks[HIP_L];
-      const rh = landmarks[HIP_R];
-      const lk = landmarks[KNEE_L];
-      const rk = landmarks[KNEE_R];
-      if (!lh || !rh || !lk || !rk) return;
+      const kind = exerciseTypeRef.current;
 
-      const hipY = (lh.y + rh.y) / 2;
-      const kneeY = (lk.y + rk.y) / 2;
-
-      // Normalized image coords: y grows downward — hips "below" knees => larger hip Y.
-      const squattingNow = hipY > kneeY;
-      setIsSquatting(squattingNow);
-
-      if (wasSquattingRef.current && !squattingNow) {
-        setSquatCount((c) => {
-          if (c >= 5) return c;
-          const next = c + 1;
-          if (next === 5 && !completionNotifiedRef.current) {
-            completionNotifiedRef.current = true;
-            onCompleteRef.current();
-          }
-          return next;
-        });
+      if (kind === "squat") {
+        const hip = landmarks[SQUAT_HIP];
+        const knee = landmarks[SQUAT_KNEE];
+        const ankle = landmarks[SQUAT_ANKLE];
+        if (
+          !landmarkVisible(hip) ||
+          !landmarkVisible(knee) ||
+          !landmarkVisible(ankle)
+        ) {
+          return;
+        }
+        const kneeAngle = calculateAngle(hip, knee, ankle);
+        const isDown = kneeAngle < 100;
+        const completedUp = kneeAngle > 160 && isDownRef.current;
+        setIsInDownPhase(isDown);
+        if (isDown) isDownRef.current = true;
+        if (completedUp) {
+          isDownRef.current = false;
+          setRepCount((c) => {
+            if (c >= 5) return c;
+            const next = c + 1;
+            if (next === 5 && !completionNotifiedRef.current) {
+              completionNotifiedRef.current = true;
+              onCompleteRef.current();
+            }
+            return next;
+          });
+          setRepFlash(true);
+          window.setTimeout(() => setRepFlash(false), 450);
+        }
+      } else {
+        const shoulder = landmarks[PUSH_SHOULDER];
+        const elbow = landmarks[PUSH_ELBOW];
+        const wrist = landmarks[PUSH_WRIST];
+        if (
+          !landmarkVisible(shoulder) ||
+          !landmarkVisible(elbow) ||
+          !landmarkVisible(wrist)
+        ) {
+          return;
+        }
+        const elbowAngle = calculateAngle(shoulder, elbow, wrist);
+        const isDown = elbowAngle < 90;
+        const completedUp = elbowAngle > 150 && isDownRef.current;
+        setIsInDownPhase(isDown);
+        if (isDown) isDownRef.current = true;
+        if (completedUp) {
+          isDownRef.current = false;
+          setRepCount((c) => {
+            if (c >= 5) return c;
+            const next = c + 1;
+            if (next === 5 && !completionNotifiedRef.current) {
+              completionNotifiedRef.current = true;
+              onCompleteRef.current();
+            }
+            return next;
+          });
+          setRepFlash(true);
+          window.setTimeout(() => setRepFlash(false), 450);
+        }
       }
-      wasSquattingRef.current = squattingNow;
     },
     [],
   );
@@ -148,7 +234,7 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
               w,
               h,
             );
-            handleSquatLogic(results.poseLandmarks);
+            processExerciseFrame(results.poseLandmarks);
           }
           ctx.restore();
         });
@@ -184,19 +270,35 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
       void cameraStop?.();
       void poseClose?.();
     };
-  }, [handleSquatLogic]);
+  }, [processExerciseFrame]);
+
+  const exerciseLabel = exerciseType === "squat" ? "Squat" : "Şınav (Push-up)";
+  const phaseHint =
+    exerciseType === "squat"
+      ? "Alt faz algılandı (diz açısı)"
+      : "Alt faz algılandı (dirsek açısı)";
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      <p className="text-center text-slate-300 text-sm font-medium">
+        Egzersiz: <span className="text-amber-300">{exerciseLabel}</span>
+      </p>
       <div
-        className="text-center text-3xl font-extrabold tracking-wide text-amber-300 drop-shadow-lg"
+        className={`text-center text-3xl font-extrabold tracking-wide drop-shadow-lg transition-colors duration-200 ${
+          repFlash ? "text-emerald-300 scale-105" : "text-amber-300"
+        }`}
         aria-live="polite"
       >
-        Squats: {squatCount} / 5
+        Tekrar: {repCount} / 5
       </div>
-      {isSquatting && (
+      {repFlash && (
+        <p className="text-center text-emerald-400 font-bold text-lg animate-pulse">
+          +1 tekrar!
+        </p>
+      )}
+      {isTrackingActive && isInDownPhase && (
         <p className="text-center text-emerald-400 font-semibold text-sm">
-          Çömelme algılandı
+          {phaseHint}
         </p>
       )}
       {error && (
@@ -205,6 +307,18 @@ export const SquatTracker: FC<SquatTrackerProps> = ({
         </p>
       )}
       <div className="relative w-full max-w-lg mx-auto rounded-xl overflow-hidden border border-slate-600 bg-black aspect-video">
+        {prepCountdown > 0 && (
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-slate-950/85 px-4 text-center backdrop-blur-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-white text-lg sm:text-xl font-bold leading-snug max-w-md">
+              Kamera Hazırlanıyor: Tüm vücudunuz kadraja girecek şekilde
+              uzaklaşın... {prepCountdown}
+            </p>
+          </div>
+        )}
         <video
           ref={videoRef}
           className="fixed pointer-events-none opacity-0 -z-10 w-[640px] h-[480px] max-w-none"

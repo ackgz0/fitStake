@@ -16,3 +16,22 @@ We need a client-side (browser) component in Next.js that opens the device camer
 - Generate a React component named `SquatTracker.tsx`.
 - Include clear UI overlays: "Squats: X / 5" and visual feedback when a squat is registered.
 - Ensure the camera asks for permissions properly and works gracefully on mobile browsers.s
+
+## 1. Preparation Phase (Calibration)
+- A mandatory 10-second countdown must occur before any tracking begins.
+- Purpose: Allows the user to step back and position themselves fully within the camera frame.
+- UI: Display a clear countdown ("10... 9...") and an instruction ("Lütfen tüm vücudunuz kadraja girecek şekilde uzaklaşın").
+
+## 2. Angle-Based Exercise Detection (Math.atan2)
+Instead of unreliable Y-coordinate comparisons, the system must calculate the joint angles using `Math.atan2`.
+
+### A. Squat Detection
+- **Landmarks:** Hip (23, 24), Knee (25, 26), Ankle (27, 28).
+- **Logic:** - Down Phase (isSquatting = true): Angle < 100 degrees.
+  - Up Phase (isSquatting = false & count++): Angle > 160 degrees.
+
+### B. Push-up (Şınav) Detection
+- **Landmarks:** Shoulder (11, 12), Elbow (13, 14), Wrist (15, 16).
+- **Logic:**
+  - Down Phase (isDown = true): Angle < 90 degrees.
+  - Up Phase (isDown = false & count++): Angle > 150 degrees.

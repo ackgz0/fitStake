@@ -23,6 +23,7 @@ import {
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import fitstakeVaultIdl from "@/idl/fitstake_vault.json";
+import type { SquatTrackerProps } from "@/components/SquatTracker";
 
 const Confetti = dynamic(
   () => import("react-confetti"),
@@ -37,7 +38,7 @@ const SquatTracker = dynamic(
       default: m.SquatTracker,
     })),
   { ssr: false, loading: () => <p className="text-slate-400 text-sm">Yükleniyor…</p> },
-);
+) as ComponentType<SquatTrackerProps>;
 
 const PROGRAM_ID = new web3.PublicKey(
   "Y423PxcQ8DobRYRrWRCYG7XrRkfvhT7MyP8TWex1MxX",
@@ -50,8 +51,7 @@ function truncatePublicKey(base58: string): string {
   return `${base58.slice(0, 4)}...${base58.slice(-4)}`;
 }
 
-function deriveChallengePdas(walletPk: web3.PublicKey) {
-  const challengeId = new BN(1);
+function deriveChallengePdas(walletPk: web3.PublicKey, challengeId: BN) {
   const [userProfilePda] = web3.PublicKey.findProgramAddressSync(
     [
       Buffer.from("user_profile"),
@@ -64,7 +64,7 @@ function deriveChallengePdas(walletPk: web3.PublicKey) {
     [Buffer.from("vault")],
     PROGRAM_ID,
   );
-  return { challengeId, userProfilePda, vaultPda };
+  return { userProfilePda, vaultPda };
 }
 
 export default function Home() {
@@ -73,6 +73,8 @@ export default function Home() {
   const anchorWallet = useAnchorWallet();
 
   const [isChallengeActive, setIsChallengeActive] = useState(false);
+  const [exerciseType, setExerciseType] = useState<"squat" | "pushup">("squat");
+  const [activeChallengeId, setActiveChallengeId] = useState<BN | null>(null);
   const [rewardUnlocked, setRewardUnlocked] = useState(false);
   const [txKind, setTxKind] = useState<null | "stake" | "claim">(null);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -112,11 +114,13 @@ export default function Home() {
     setTxKind("stake");
     try {
       const program = getProgram();
-      const { challengeId, userProfilePda, vaultPda } = deriveChallengePdas(
+      const newChallengeId = new BN(Date.now());
+      const { userProfilePda, vaultPda } = deriveChallengePdas(
         anchorWallet.publicKey,
+        newChallengeId,
       );
       await program.methods
-        .stakeSol(challengeId)
+        .stakeSol(newChallengeId)
         .accounts({
           userProfile: userProfilePda,
           vault: vaultPda,
@@ -124,6 +128,7 @@ export default function Home() {
           systemProgram: web3.SystemProgram.programId,
         })
         .rpc();
+      setActiveChallengeId(newChallengeId);
       setIsChallengeActive(true);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : String(e));
@@ -137,14 +142,19 @@ export default function Home() {
       window.alert("Cüzdan bağlı değil.");
       return;
     }
+    if (!activeChallengeId) {
+      window.alert("Aktif challenge kimliği yok. Önce stake yapın.");
+      return;
+    }
     setTxKind("claim");
     try {
       const program = getProgram();
-      const { challengeId, userProfilePda, vaultPda } = deriveChallengePdas(
+      const { userProfilePda, vaultPda } = deriveChallengePdas(
         anchorWallet.publicKey,
+        activeChallengeId,
       );
       await program.methods
-        .claimReward(challengeId)
+        .claimReward(activeChallengeId)
         .accounts({
           userProfile: userProfilePda,
           vault: vaultPda,
@@ -154,6 +164,7 @@ export default function Home() {
         .rpc();
       window.alert("Tebrikler! Ödül cüzdanına yattı!");
       setRewardUnlocked(false);
+      setActiveChallengeId(null);
       setShowConfetti(true);
       window.setTimeout(() => setShowConfetti(false), 4500);
     } catch (e) {
@@ -161,7 +172,7 @@ export default function Home() {
     } finally {
       setTxKind(null);
     }
-  }, [anchorWallet, getProgram]);
+  }, [anchorWallet, activeChallengeId, getProgram]);
 
   const isTxPending = txKind !== null;
   const stakeLabel =
@@ -199,25 +210,56 @@ export default function Home() {
             </p>
 
             {isChallengeActive ? (
-              <SquatTracker onChallengeComplete={handleChallengeComplete} />
+              <SquatTracker
+                exerciseType={exerciseType}
+                onChallengeComplete={handleChallengeComplete}
+              />
             ) : (
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={handleStake}
-                  disabled={isTxPending}
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {stakeLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClaim}
-                  disabled={!rewardUnlocked || isTxPending}
-                  className="rounded-xl border border-slate-600 bg-slate-800/50 font-medium py-3 px-4 disabled:text-slate-500 disabled:cursor-not-allowed enabled:text-emerald-300 enabled:hover:bg-slate-700/80 enabled:border-emerald-700/50 transition-colors"
-                >
-                  {claimLabel}
-                </button>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Egzersiz seçimi">
+                  <button
+                    type="button"
+                    onClick={() => setExerciseType("squat")}
+                    className={`rounded-xl font-medium py-2 px-4 transition-colors ${
+                      exerciseType === "squat"
+                        ? "bg-emerald-600 text-white ring-2 ring-emerald-400/80"
+                        : "border border-slate-600 bg-slate-800/50 text-slate-300 hover:bg-slate-700/80"
+                    }`}
+                  >
+                    Squat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExerciseType("pushup")}
+                    className={`rounded-xl font-medium py-2 px-4 transition-colors ${
+                      exerciseType === "pushup"
+                        ? "bg-emerald-600 text-white ring-2 ring-emerald-400/80"
+                        : "border border-slate-600 bg-slate-800/50 text-slate-300 hover:bg-slate-700/80"
+                    }`}
+                  >
+                    Şınav
+                  </button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={handleStake}
+                    disabled={isTxPending}
+                    className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {stakeLabel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClaim}
+                    disabled={
+                      !rewardUnlocked || activeChallengeId === null || isTxPending
+                    }
+                    className="rounded-xl border border-slate-600 bg-slate-800/50 font-medium py-3 px-4 disabled:text-slate-500 disabled:cursor-not-allowed enabled:text-emerald-300 enabled:hover:bg-slate-700/80 enabled:border-emerald-700/50 transition-colors"
+                  >
+                    {claimLabel}
+                  </button>
+                </div>
               </div>
             )}
           </div>
