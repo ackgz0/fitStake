@@ -1,0 +1,4 @@
+[toolchain]
+# Anchor 0.30 + SBF: host cargo ile uyum; Cargo.lock v3 üretmek için `rustup run 1.79.0 cargo generate-lockfile`
+channel = "1.79.0"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,19 @@
+{
+  "name": "fitstake",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "lint": "npm run lint -w web",
+    "start": "npm run start -w web",
+    "faz0:verify": "bash scripts/faz0-verify.sh",
+    "test:faz0": "node scripts/faz0-verify.mjs",
+    "anchor:build": "anchor build --no-idl"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,29 @@
+[package]
+name = "fitstake_vault"
+version = "0.1.0"
+description = "FitStake vault program (Faz 0 scaffold — Saat 1'de genişletilecek)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "fitstake_vault"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.30.1"
+# Çözümlemeyi blake3 1.5.x'e zorla (digest 0.11 / block-buffer 0.12 → Cargo 1.79 uyumsuz)
+blake3 = "=1.5.5"
+# borsh-derive → proc-macro-crate 3.5 → toml_edit 0.25 → edition2024; eski zincirle sabitle
+proc-macro-crate = "=3.2.0"
+# SBF rustc 1.79 ile uyum (cargo-build-sbf)
+indexmap = "=2.6.0"
+unicode-segmentation = "=1.10.1"
+# 0.1.33+ getrandom 0.3 → wit-bindgen; 0.1.30 SBF/wasm derlemesinde hatalı; 0.1.31 getrandom yok + wasm düzeltmesi
+jobserver = "=0.1.31"
